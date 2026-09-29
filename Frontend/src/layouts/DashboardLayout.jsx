@@ -18,8 +18,8 @@ export const DashboardLayout = ({ children }) => {
       {/* Footer */}
       <footer className="relative z-10 border-t border-slate-200/80 dark:border-slate-800/80 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p>AuthShield Management Portal &bull; Active Device Session</p>
-          <p>Connected to Live Express Authentication Backend</p>
+          <p>AuthShield Security Portal &bull; Developed by <span className="font-semibold text-slate-700 dark:text-slate-300">Anis Khan Niazi</span></p>
+          <p>&copy; {new Date().getFullYear()} All rights reserved</p>
         </div>
       </footer>
     </div>

@@ -185,6 +185,14 @@ Import this file directly into Postman to test all endpoints with pre-configured
 
 ---
 
+## Author
+
+**Anis Khan Niazi**
+- GitHub: [@AnisKhanN](https://github.com/AnisKhanN)
+- Repository: [Complete-Authentication-System](https://github.com/AnisKhanN/Complete-Authentication-System)
+
+---
+
 ## License
 
 This project is licensed under the MIT License.

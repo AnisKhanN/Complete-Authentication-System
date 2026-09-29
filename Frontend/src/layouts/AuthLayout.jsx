@@ -1,8 +1,8 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Shield, Lock } from 'lucide-react';
-import { AuthBackground } from '../components/auth/AuthBackground';
-import { ThemeToggle } from '../components/common/ThemeToggle';
+import React from "react";
+import { Link } from "react-router-dom";
+import { Shield, Lock } from "lucide-react";
+import { AuthBackground } from "../components/auth/AuthBackground";
+import { ThemeToggle } from "../components/common/ThemeToggle";
 
 export const AuthLayout = ({ children }) => {
   return (
@@ -35,10 +35,15 @@ export const AuthLayout = ({ children }) => {
       <footer className="relative z-20 w-full max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400 dark:text-slate-500">
         <div className="flex items-center gap-1.5">
           <Lock className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Enterprise JWT Authentication & HTTP-Only Cookie Protection</span>
+          <span>
+            Enterprise JWT Authentication & HTTP-Only Cookie Protection
+          </span>
         </div>
         <div>
-          &copy; {new Date().getFullYear()} AuthShield Security Inc. All rights reserved.
+          &copy; {new Date().getFullYear()} AuthShield &bull; Developed by{" "}
+          <span className="font-semibold text-slate-700 dark:text-slate-300">
+            Anis Khan Niazi
+          </span>
         </div>
       </footer>
     </div>

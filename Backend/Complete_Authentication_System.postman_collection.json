@@ -1,0 +1,959 @@
+{
+  "info": {
+    "_postman_id": "eb6c62a8-38cc-4a9f-988e-bc641cf9e074",
+    "name": "Complete Authentication System",
+    "description": "Complete Authentication System Postman Collection covering all implemented endpoints: Health Check, Registration, Login, Profile Retrieval (/get-me), Token Refreshing, Single-Device Logout, All-Device Logout, OTP Generation, OTP Verification, Password Reset with OTP, and Error/Validation tests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userEmail",
+      "value": "anis@example.com",
+      "type": "string"
+    },
+    {
+      "key": "otp",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Core Authentication Flow",
+      "description": "Registration, Login, and Authenticated User Profile retrieval.",
+      "id": "f2000001-0000-4000-8000-000000000001",
+      "item": [
+        {
+          "name": "Health Check",
+          "id": "e2000001-0000-4000-8000-000000000001",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Verifies that the backend server is running. Responds with 'Server started successfully'."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Server responds with success message\", function () {",
+                  "    pm.expect(pm.response.text()).to.include(\"Server started successfully\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register User",
+          "id": "e2000001-0000-4000-8000-000000000002",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anis Khan\",\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Registers a new user in the database. Hashes password, issues accessToken & refreshToken, saves refreshToken in DB, sets httpOnly cookies, and returns user object."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const timestamp = Date.now();",
+                  "pm.collectionVariables.set(\"userEmail\", \"anis_\" + timestamp + \"@example.com\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test(\"Message is 'User created successfully'\", function () {",
+                  "    pm.expect(res.message).to.eql(\"User created successfully\");",
+                  "});",
+                  "",
+                  "if (res && res.user) {",
+                  "    if (res.user._id) {",
+                  "        pm.collectionVariables.set(\"userId\", res.user._id);",
+                  "    }",
+                  "    if (res.user.email) {",
+                  "        pm.collectionVariables.set(\"userEmail\", res.user.email);",
+                  "    }",
+                  "}",
+                  "",
+                  "// Extract tokens from cookie or response headers",
+                  "const setCookieHeader = pm.response.headers.get(\"Set-Cookie\");",
+                  "if (setCookieHeader) {",
+                  "    const accessMatch = setCookieHeader.match(/accessToken=([^;]+)/);",
+                  "    if (accessMatch && accessMatch[1]) {",
+                  "        pm.collectionVariables.set(\"accessToken\", accessMatch[1]);",
+                  "    }",
+                  "    const refreshMatch = setCookieHeader.match(/refreshToken=([^;]+)/);",
+                  "    if (refreshMatch && refreshMatch[1]) {",
+                  "        pm.collectionVariables.set(\"refreshToken\", refreshMatch[1]);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login User",
+          "id": "e2000001-0000-4000-8000-000000000008",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Authenticates user with email and password. Generates fresh access and refresh tokens, tracks session in user document, and sets httpOnly cookies."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test(\"Message is 'Login successful'\", function () {",
+                  "    pm.expect(res.message).to.eql(\"Login successful\");",
+                  "});",
+                  "",
+                  "if (res.accessToken) {",
+                  "    pm.collectionVariables.set(\"accessToken\", res.accessToken);",
+                  "}",
+                  "if (res.refreshToken) {",
+                  "    pm.collectionVariables.set(\"refreshToken\", res.refreshToken)",
+                  "}",
+                  "",
+                  "const setCookieHeader = pm.response.headers.get(\"Set-Cookie\");",
+                  "if (setCookieHeader) {",
+                  "    const accessMatch = setCookieHeader.match(/accessToken=([^;]+)/);",
+                  "    if (accessMatch && accessMatch[1]) {",
+                  "        pm.collectionVariables.set(\"accessToken\", accessMatch[1]);",
+                  "    }",
+                  "    const refreshMatch = setCookieHeader.match(/refreshToken=([^;]+)/);",
+                  "    if (refreshMatch && refreshMatch[1]) {",
+                  "        pm.collectionVariables.set(\"refreshToken\", refreshMatch[1]);",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test(\"User object returned without password\", function () {",
+                  "    pm.expect(res).to.have.property(\"user\");",
+                  "    pm.expect(res.user).to.have.property(\"_id\");",
+                  "    pm.expect(res.user).to.have.property(\"email\");",
+                  "    pm.expect(res.user).to.not.have.property(\"password\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User (/get-me)",
+          "id": "e2000001-0000-4000-8000-000000000003",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-me"]
+            },
+            "description": "Protected route using verifyAuth middleware. Checks Bearer token or accessToken cookie, and returns sanitized profile."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test(\"Message is 'User found successfully'\", function () {",
+                  "    pm.expect(res.message).to.eql(\"User found successfully\");",
+                  "});",
+                  "",
+                  "pm.test(\"User object returned without password\", function () {",
+                  "    pm.expect(res).to.have.property(\"user\");",
+                  "    pm.expect(res.user).to.have.property(\"_id\");",
+                  "    pm.expect(res.user).to.have.property(\"name\");",
+                  "    pm.expect(res.user).to.have.property(\"email\");",
+                  "    pm.expect(res.user).to.not.have.property(\"password\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Session Management & Multi-Device Logout",
+      "description": "Token refreshing and session invalidation for single device and all devices.",
+      "id": "f2000001-0000-4000-8000-000000000003",
+      "item": [
+        {
+          "name": "Refresh Token",
+          "id": "e2000001-0000-4000-8000-000000000009",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh-token"]
+            },
+            "description": "Issues a new accessToken by validating the refreshToken against active database sessions."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test(\"Message is 'Token refreshed successfully'\", function () {",
+                  "    pm.expect(res.message).to.eql(\"Token refreshed successfully\");",
+                  "});",
+                  "",
+                  "if (res.accessToken) {",
+                  "    pm.collectionVariables.set(\"accessToken\", res.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout (Current Device)",
+          "id": "e2000001-0000-4000-8000-000000000010",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout?refreshToken={{refreshToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"],
+              "query": [
+                {
+                  "key": "refreshToken",
+                  "value": "{{refreshToken}}",
+                  "description": "Optional query parameter; cookie or bearer token is also accepted."
+                }
+              ]
+            },
+            "description": "Revokes current device's refresh token in database and clears authentication cookies via GET."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test(\"Message is 'Logged out successfully'\", function () {",
+                  "    pm.expect(res.message).to.eql(\"Logged out successfully\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Devices",
+          "id": "e2000001-0000-4000-8000-000000000015",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-devices",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-devices"]
+            },
+            "description": "Retrieves active device sessions for the authenticated user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test(\"Contains devices array\", function () {",
+                  "    pm.expect(res).to.have.property(\"devices\");",
+                  "    pm.expect(res.devices).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout (All Devices)",
+          "id": "e2000001-0000-4000-8000-000000000011",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout-all"]
+            },
+            "description": "Revokes all refresh tokens and active sessions for the user across all devices."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test(\"Message is 'Logged out from all devices successfully'\", function () {",
+                  "    pm.expect(res.message).to.eql(\"Logged out from all devices successfully\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. OTP & Password Reset Flow",
+      "description": "End-to-end OTP generation, verification, and password reset workflow.",
+      "id": "f2000001-0000-4000-8000-000000000004",
+      "item": [
+        {
+          "name": "Send OTP",
+          "id": "e2000001-0000-4000-8000-000000000012",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/send-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "send-otp"]
+            },
+            "description": "Generates a 6-digit numeric OTP with 10-minute expiry and saves it to user record. Automatically captures generated OTP into collection variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test(\"Message is 'OTP sent successfully'\", function () {",
+                  "    pm.expect(res.message).to.eql(\"OTP sent successfully\");",
+                  "});",
+                  "",
+                  "// Auto-populate {{otp}} variable for subsequent tests",
+                  "if (res && res.otp) {",
+                  "    pm.collectionVariables.set(\"otp\", String(res.otp));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify OTP",
+          "id": "e2000001-0000-4000-8000-000000000013",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"otp\": \"{{otp}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "verify-otp"]
+            },
+            "description": "Validates the submitted OTP and ensures it is active and not expired."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test(\"Message is 'OTP verified successfully'\", function () {",
+                  "    pm.expect(res.message).to.eql(\"OTP verified successfully\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset Password with OTP",
+          "id": "e2000001-0000-4000-8000-000000000014",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"otp\": \"{{otp}}\",\n  \"newPassword\": \"NewPassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "reset-password"]
+            },
+            "description": "Resets password using verified OTP, clears OTP, and terminates all active sessions across all devices."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test(\"Message is 'Password reset successfully'\", function () {",
+                  "    pm.expect(res.message).to.eql(\"Password reset successfully\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login with New Password",
+          "id": "e2000001-0000-4000-8000-000000000015",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"NewPassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Verifies that the user can authenticate with the newly updated password after reset."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test(\"Message is 'Login successful'\", function () {",
+                  "    pm.expect(res.message).to.eql(\"Login successful\");",
+                  "});",
+                  "",
+                  "if (res.accessToken) {",
+                  "    pm.collectionVariables.set(\"accessToken\", res.accessToken);",
+                  "}",
+                  "if (res.refreshToken) {",
+                  "    pm.collectionVariables.set(\"refreshToken\", res.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Validation & Error Tests",
+      "description": "Validation checks and failure scenarios (Missing fields, duplicates, bad credentials, invalid tokens, invalid OTP).",
+      "id": "f2000001-0000-4000-8000-000000000002",
+      "item": [
+        {
+          "name": "Register - Missing Fields (400)",
+          "id": "e2000001-0000-4000-8000-000000000004",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Incomplete User\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Tests 400 Bad Request when required body parameters (name, email, password) are missing."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Message is 'All fields are required'\", function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.message).to.eql(\"All fields are required\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register - Duplicate User (400)",
+          "id": "e2000001-0000-4000-8000-000000000005",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anis Khan\",\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Tests 400 Bad Request when a user with the same email or name already exists in the database."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Message is 'User already exists'\", function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.message).to.eql(\"User already exists\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login - Invalid Password (400)",
+          "id": "e2000001-0000-4000-8000-000000000016",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"WrongPassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Tests 400 Bad Request when attempting login with incorrect password."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Message is 'Invalid email or password'\", function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.message).to.eql(\"Invalid email or password\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Me - Token Missing (401)",
+          "id": "e2000001-0000-4000-8000-000000000006",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": ""
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-me"]
+            },
+            "description": "Tests 401 Unauthorized when requesting /get-me without Authorization header or cookie."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "    const jar = pm.cookies.jar();",
+                  "    jar.clear(pm.request.url, function (error) {});",
+                  "} catch(e) {}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"Message is 'Token not found'\", function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.message).to.eql(\"Token not found\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Me - Token Invalid (401)",
+          "id": "e2000001-0000-4000-8000-000000000007",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid_jwt_token_payload_xyz"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "get-me"]
+            },
+            "description": "Tests 401 Unauthorized when passing a malformed or invalid JWT token string."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"Message is 'Token invalid'\", function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.message).to.eql(\"Token invalid\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify OTP - Invalid OTP (400)",
+          "id": "e2000001-0000-4000-8000-000000000017",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"otp\": \"000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "verify-otp"]
+            },
+            "description": "Tests 400 Bad Request when an incorrect OTP code is supplied."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Message is 'Invalid OTP'\", function () {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.message).to.eql(\"Invalid OTP\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
